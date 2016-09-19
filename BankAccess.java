@@ -14,33 +14,39 @@ public class BankAccess implements Runnable {
 	//Make all pin checking done by account from now on
 	private class Account {
 		
-		private int bal;
+		private MoneyFloat bal;
 		private int pin;
 		private String name;
 		
-		public Account(int bal, int pin, String name) {
-			this.bal = bal;
+		public Account(float bal, int pin, String name) throws BankException {
+
+			this.bal = new MoneyFloat(bal);
 			this.pin = pin;
 			this.name = name;
 		}
 		
-		public void deposit(int amt) throws BankException {
-			if (amt >= 0 && (amt + bal) > bal) {
-				bal += amt;
-			} else {
-				throw new BankException("Invalid amount; maximum size exceeded or negative number");
+		public void deposit(float amt) throws BankException {
+			MoneyFloat a = new MoneyFloat(amt);
+			if (a.isPositive()) {
+				bal = bal.add(a);
 			}
+			//This is being called erroneously. Why?
+			throw new BankException("Deposits must be greater than zero");
 		}
 		
 		//throw withdraw error: wrong pin, or invalid amount
-		public void withdraw(int amt) throws BankException {
+		public void withdraw(float amt) throws BankException {
 			
-			//TODO: distinguish between and amt errors
-			if (amt <= bal) {
-				bal -= amt;
-			} else {
+			MoneyFloat a = new MoneyFloat(-1*amt);
+			if (!a.isPositive()) {
+				if (bal.compare(a) >= 0) {
+					bal = bal.add(a);
+				}
 				throw new BankException("Insufficient funds.");
 			}
+			throw new BankException("Deposits must be greater than zero");
+			
+			//TODO: distinguish between and amt errors
 		}
 		
 		public String getName() {
@@ -52,10 +58,66 @@ public class BankAccess implements Runnable {
 			return pin;
 		}
 		
-		public int getBal() {
-			return bal;
+		public float getBal() {
+			return bal.num;
 		}
 		
+	}
+	
+	private class MoneyFloat {
+		
+		public Float num;
+		
+		public MoneyFloat(Float f) throws BankException {
+			num = f;
+			validate();
+		}
+		
+		public void validate() throws BankException {
+			num = new Float(String.format(java.util.Locale.US, "%.2f", num));
+			
+			if (num >= 1000000) {
+				throw new BankException("No monetary amount may exist greater than one million.");
+			}
+		}
+		
+		/*
+		public static Float validate(Float f) {
+			float temp = String.format(java.util.Locale.US,"%.2f", num);
+			if (temp >= 1000000) {
+				throw new BankException("No monetary amount may exist greater than one million.");
+			}
+			return temp;
+		}
+		*/
+		
+		public MoneyFloat add(MoneyFloat f) throws BankException {
+			MoneyFloat r = new MoneyFloat(num + f.num);
+			if (f.isPositive()) {
+				if (num >= r.num) {
+					throw new BankException("Error: funds too large to deposit this amount.");
+				}
+			} else {
+				if (num > r.num) {
+					throw new BankException("Error: withdraw request too large.");
+				}
+			}
+			return r;
+		}
+		
+		public int compare(MoneyFloat f) {
+			if (f.num < num) {
+				return 1;
+			} else if (f.num > num) {
+				return -1;
+			}
+			return 0;
+		}
+		
+		public boolean isPositive() {
+			return num > 0;
+		}
+
 	}
 	
 	//call getMessage() to get details;
@@ -110,24 +172,31 @@ public class BankAccess implements Runnable {
 				
 	}
 	
-	private int parseLine(String[] in, String match) throws BankException {
+	
+	private <T extends Number> T parseLine(String[] in, String match) throws BankException {
 		String error = "Error: Account file formatted incorrectly";
-		if (in.length == 2 && in[0].equals(match + ":")) {
+		if (in.length == 2) {
 			try {
-				return Integer.parseInt(in[1]);
+				switch (in[0]) {
+					case "pin:":
+						T i = (T)Integer.valueOf(in[1]);
+						return i;
+					case "bal:":
+						T f = (T)Float.valueOf(in[1]);
+						return f;
+				}
 			} catch (NumberFormatException e) {
-				//technically superfluous, as it would just hit the next throw
-				// anyways
-				throw new BankException(error);
+				throw new BankException(error + ". PIN or Balance is in the wrong format.");
 			}
 		}
 		throw new BankException(error);
 	}
 	
+	
 	//TODO: clean this up dramatically
 	//Do error handling/throwing
 	private Account buildAccount(String name) throws BankException {
-		
+				
 		BufferedReader in = null;
 		String s_bal[];
 		String s_pin[];
@@ -147,8 +216,10 @@ public class BankAccess implements Runnable {
 			
 			if (s_bal != null && s_pin != null) {
 				
-				int bal = parseLine(s_bal, "bal");
-				int pin = parseLine(s_pin, "pin");
+				float bal = this.<Float>parseLine(s_bal, "bal");
+				int pin = this.<Integer>parseLine(s_pin, "pin");
+				
+				//System.out.println("Balance: " + bal);
 				
 				return new Account(bal, pin, name);
 				
@@ -160,6 +231,7 @@ public class BankAccess implements Runnable {
 			throw new BankException("Error: Account file not found");
 		}
 	}
+	
 	
 	private void parseCommand(String[] cmd, Account acct) throws BankException {
 		switch (cmd[0]) {
@@ -213,7 +285,7 @@ public class BankAccess implements Runnable {
 	private void deposit(String cmd[], Account acct) throws BankException {
 		if (dir) {
 			if (cmd.length == 3) {
-				int amt = parseAmt(cmd[2]);
+				float amt = parseAmt(cmd[2]);
 				acct.deposit(amt);
 				write(String.valueOf(acct.getBal()));
 			} else {
@@ -226,7 +298,7 @@ public class BankAccess implements Runnable {
 	
 	private void withdraw(String cmd[], Account acct) throws BankException {
 		if (cmd.length == 3) {
-			int amt = parseAmt(cmd[2]);
+			float amt = parseAmt(cmd[2]);
 			checkPin(acct);
 			acct.withdraw(amt);
 			write(String.valueOf(acct.getBal()));
@@ -237,9 +309,9 @@ public class BankAccess implements Runnable {
 	}
 	
 	//TODO: change this to double
-	private int parseAmt(String amt) throws BankException {
+	private float parseAmt(String amt) throws BankException {
 		try {
-			return Integer.parseInt(amt);
+			return Float.parseFloat(amt);
 		} catch (NumberFormatException e){
 			throw new BankException("Invalid amount; enter only integers");
 		}
@@ -258,7 +330,6 @@ public class BankAccess implements Runnable {
 			try {
 				pin_in = Integer.parseInt(in);
 				if (pin_in == acct.getPin()) {
-					//write(acct.getPin());
 					return true;
 				} else {
 					write("Invalid PIN");
