@@ -1,6 +1,6 @@
 import java.net.*;
 import java.io.*;
-
+import java.util.concurrent.Semaphore;
 
 public class Bank {
 	
@@ -12,7 +12,7 @@ public class Bank {
 	//Run with three arguments: port_dir	port_router		ip_router
 	public static void main (String args[]) throws IOException {
 	
-	
+		Semaphore sem = new Semaphore(1, true);
 		int port_dir = 0;
 		int port_rout = 0;
 		String ip;
@@ -37,10 +37,10 @@ public class Bank {
 		//Also: need to manage synchronization issues
 		ip = args[2];
 		//Do much better handling for malicious behavior; timeouts, etc.
-		atm = new BankAccess(new Socket(ip, port_rout), false);
+		atm = new BankAccess(new Socket(ip, port_rout), false, sem);
 		atm.start();
 		ss = new ServerSocket(port_dir);
-		dir = new BankAccess(ss.accept(), true);
+		dir = new BankAccess(ss.accept(), true, sem);
 		dir.start();
 		
 	}

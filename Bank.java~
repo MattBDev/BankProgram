@@ -12,7 +12,7 @@ public class Bank {
 	//Run with three arguments: port_dir	port_router		ip_router
 	public static void main (String args[]) throws IOException {
 	
-	
+		Semaphore sem = new Semaphore(1, true);
 		int port_dir = 0;
 		int port_rout = 0;
 		String ip;
@@ -33,13 +33,15 @@ public class Bank {
 				return;
 		}
 		
+		//TODO: re-impliment ATM thread
+		//Also: need to manage synchronization issues
 		ip = args[2];
 		//Do much better handling for malicious behavior; timeouts, etc.
-		atm = new BankAccess(new Socket(ip, port_rout), false);
-		ss = new ServerSocket(port_dir);
-		dir = new BankAccess(ss.accept(), true);
-		dir.start();
+		atm = new BankAccess(new Socket(ip, port_rout), false, sem);
 		atm.start();
+		ss = new ServerSocket(port_dir);
+		dir = new BankAccess(ss.accept(), true, sem);
+		dir.start();
 		
 	}
 }
