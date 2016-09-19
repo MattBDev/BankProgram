@@ -10,8 +10,6 @@ public class BankAccess implements Runnable {
 	
 	
 
-	//Account accnt;
-	//Make all pin checking done by account from now on
 	private class Account {
 		
 		private MoneyFloat bal;
@@ -26,34 +24,37 @@ public class BankAccess implements Runnable {
 		}
 		
 		public void deposit(float amt) throws BankException {
+			System.out.println("amt: " + amt);
 			MoneyFloat a = new MoneyFloat(amt);
+			System.out.println("after: " + a.num + ", pos: " + a.isPositive());
 			if (a.isPositive()) {
-				bal = bal.add(a);
+				bal = bal.sum(a);
+			} else {
+				//This is being called erroneously. Why?
+				throw new BankException("Deposits must be greater than zero");
 			}
-			//This is being called erroneously. Why?
-			throw new BankException("Deposits must be greater than zero");
 		}
 		
 		//throw withdraw error: wrong pin, or invalid amount
 		public void withdraw(float amt) throws BankException {
-			
-			MoneyFloat a = new MoneyFloat(-1*amt);
-			if (!a.isPositive()) {
+			MoneyFloat a = new MoneyFloat(amt);
+			if (a.isPositive()) {
 				if (bal.compare(a) >= 0) {
-					bal = bal.add(a);
+					bal = bal.sum(a.flip());
+				} else {
+					throw new BankException("Insufficient funds.");
 				}
-				throw new BankException("Insufficient funds.");
+			} else {
+				throw new BankException("Deposits must be greater than zero");
 			}
-			throw new BankException("Deposits must be greater than zero");
-			
-			//TODO: distinguish between and amt errors
+
 		}
 		
 		public String getName() {
 			return name;
 		}
 		
-		//TODO: probably remove this method
+		//TODO: maybe remove this method
 		public int getPin() {
 			return pin;
 		}
@@ -81,24 +82,23 @@ public class BankAccess implements Runnable {
 			}
 		}
 		
-		/*
-		public static Float validate(Float f) {
-			float temp = String.format(java.util.Locale.US,"%.2f", num);
-			if (temp >= 1000000) {
-				throw new BankException("No monetary amount may exist greater than one million.");
-			}
-			return temp;
+		public MoneyFloat flip() throws BankException {
+			num *= -1;
+			validate();
+			return this;
 		}
-		*/
 		
-		public MoneyFloat add(MoneyFloat f) throws BankException {
+		public MoneyFloat sum(MoneyFloat f) throws BankException {
 			MoneyFloat r = new MoneyFloat(num + f.num);
+			System.out.println("Added: " + r.num);
 			if (f.isPositive()) {
 				if (num >= r.num) {
 					throw new BankException("Error: funds too large to deposit this amount.");
 				}
 			} else {
-				if (num > r.num) {
+				System.out.println("Before: " + num);
+				System.out.println("After: " + r.num);
+				if (num <= r.num) {
 					throw new BankException("Error: withdraw request too large.");
 				}
 			}
@@ -120,7 +120,6 @@ public class BankAccess implements Runnable {
 
 	}
 	
-	//call getMessage() to get details;
 	private class BankException extends Exception {
 		public BankException(String msg) {
 			super(msg);
@@ -172,7 +171,6 @@ public class BankAccess implements Runnable {
 				
 	}
 	
-	
 	private <T extends Number> T parseLine(String[] in, String match) throws BankException {
 		String error = "Error: Account file formatted incorrectly";
 		if (in.length == 2) {
@@ -192,9 +190,6 @@ public class BankAccess implements Runnable {
 		throw new BankException(error);
 	}
 	
-	
-	//TODO: clean this up dramatically
-	//Do error handling/throwing
 	private Account buildAccount(String name) throws BankException {
 				
 		BufferedReader in = null;
@@ -202,7 +197,8 @@ public class BankAccess implements Runnable {
 		String s_pin[];
 		
 		try {
-			//prevent them from opening any other potentially malicious files
+			//TODO: be more careful about what files are opened
+			//(Attempt to) prevent them from opening any other potentially malicious files
 			if (!(name.equals("Jason") || name.equals("Matthew"))) {
 				throw new BankException("Account name not recognized");
 			}
@@ -218,9 +214,7 @@ public class BankAccess implements Runnable {
 				
 				float bal = this.<Float>parseLine(s_bal, "bal");
 				int pin = this.<Integer>parseLine(s_pin, "pin");
-				
-				//System.out.println("Balance: " + bal);
-				
+								
 				return new Account(bal, pin, name);
 				
 			} else {
@@ -308,7 +302,6 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	//TODO: change this to double
 	private float parseAmt(String amt) throws BankException {
 		try {
 			return Float.parseFloat(amt);
@@ -317,7 +310,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	public boolean checkPin(Account acct) throws BankException {
+	private boolean checkPin(Account acct) throws BankException {
 		String in;
 		int pin_in;
 		//TODO: add limit on PIN guesses. When reached, return false; failed PIN
@@ -340,7 +333,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	//TODO: handle IO exceptions
+	//TODO: handle this better
 	private void write(String msg) {
 				
 		try {
@@ -352,7 +345,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	//Do much better handling here
+	//TODO: handle this better
 	private String read() {
 		try {
 			String in = br.readLine();			

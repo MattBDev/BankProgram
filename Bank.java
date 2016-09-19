@@ -33,6 +33,8 @@ public class Bank {
 				return;
 		}
 		
+		//TODO: re-impliment ATM thread
+		//Also: need to manage synchronization issues
 		ip = args[2];
 		//Do much better handling for malicious behavior; timeouts, etc.
 		//atm = new BankAccess(new Socket(ip, port_dir), true);
