@@ -1,3 +1,6 @@
-1. Start Router.
-2. Start Bank.
-3. Start ATM.
+Router:
+`java -jar Router <ATM port> <Bank Port>'
+ATM:
+'java -jar ATM <router IP> <router port>'
+Bank:
+'java -jar Bank <direct port> <router port> <router ip>'
