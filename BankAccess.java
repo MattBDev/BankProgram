@@ -1,5 +1,6 @@
 import java.net.*;
 import java.io.*;
+import java.util.concurrent.Semaphore;
 
 public class BankAccess implements Runnable {
 	
@@ -7,7 +8,7 @@ public class BankAccess implements Runnable {
 	
 	BufferedReader br;
 	BufferedWriter bw;
-	
+	private Semaphore control;
 	
 
 	private class Account {
@@ -142,9 +143,10 @@ public class BankAccess implements Runnable {
 	}
 	
 
-	public BankAccess(Socket s, boolean direct) throws IOException {
+	public BankAccess(Socket s, boolean direct, Semaphore sem) throws IOException {
 		dir = direct;
-		
+		control = sem;
+
 		br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
 	}
@@ -155,7 +157,7 @@ public class BankAccess implements Runnable {
 
 	@Override
 	public void run() {
-				
+		
 		while (true) {
 		
 			write("hello");
@@ -210,7 +212,7 @@ public class BankAccess implements Runnable {
 	}
 	
 	private Account buildAccount(String name) throws BankException {
-				
+		
 		BufferedReader in = null;
 		String s_bal[];
 		String s_pin[];
@@ -222,6 +224,7 @@ public class BankAccess implements Runnable {
 				throw new BankException("Account name not recognized");
 			}
 			
+			control.acquire();
 			in = new BufferedReader(new FileReader((name + ".acct")));
 
 			s_pin = in.readLine().split("\\s+");
@@ -242,6 +245,13 @@ public class BankAccess implements Runnable {
 						
 		} catch (IOException e) {
 			throw new BankException("Error: Account file not found");
+		} finally {
+			try {
+				in.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			control.release();
 		}
 	}
 	
