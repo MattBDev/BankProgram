@@ -150,7 +150,7 @@ public class BankAccess implements Runnable {
 	}
 	
 	public void start() {
-		(new Thread(this)).start();
+		
 	}
 
 	@Override
