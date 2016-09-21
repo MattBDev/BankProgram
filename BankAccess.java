@@ -69,18 +69,18 @@ public class BankAccess implements Runnable {
 		public String getName() {
 			return name;
 		}
-		
+
 		//TODO: maybe remove this method
-		public int getPin() {
+        int getPin() {
 			return pin;
 		}
-		
+
 		public float getBal() {
 			return bal.num;
 		}
-		
+
 	}
-	
+
 	private class MoneyFloat {
 		
 		public Float num;
@@ -213,24 +213,25 @@ public class BankAccess implements Runnable {
 	
 	private Account buildAccount(String name) throws BankException {
 		
-		BufferedReader in = null;
 		String s_bal[];
 		String s_pin[];
-		
+
 		try {
 			//TODO: be more careful about what files are opened
 			//(Attempt to) prevent them from opening any other potentially malicious files
 			if (!(name.equals("Jason") || name.equals("Matthew"))) {
 				throw new BankException("Account name not recognized");
 			}
-			
-			control.acquire();
-			in = new BufferedReader(new FileReader((name + ".acct")));
 
-			s_pin = in.readLine().split("\\s+");
-			s_bal = in.readLine().split("\\s+");
-			
-			in.close();
+			control.acquire();
+			try (BufferedReader in = new BufferedReader(new FileReader((name + ".acct")))) {
+
+				s_pin = in.readLine().split("\\s+");
+				s_bal = in.readLine().split("\\s+");
+
+			} catch (IOException e) {
+				throw new BankException("Error: Account file not found");
+			}
 			
 			if (s_bal != null && s_pin != null) {
 				
@@ -243,14 +244,9 @@ public class BankAccess implements Runnable {
 				throw new BankException("Error: Account file formatted incorrectly");
 			}
 						
-		} catch (IOException e) {
-			throw new BankException("Error: Account file not found");
+		} catch (InterruptedException e) {
+			throw new BankException(e.getMessage());
 		} finally {
-			try {
-				in.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
 			control.release();
 		}
 	}
@@ -372,8 +368,7 @@ public class BankAccess implements Runnable {
 	//TODO: handle this better
 	private String read() {
 		try {
-			String in = br.readLine();			
-			return in;
+            return br.readLine();
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
