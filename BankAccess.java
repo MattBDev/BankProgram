@@ -2,6 +2,7 @@ import java.net.*;
 import java.io.*;
 import java.util.concurrent.Semaphore;
 import java.util.Arrays;
+import java.nio.channels.*;
 
 public class BankAccess implements Runnable {
 	
@@ -149,15 +150,17 @@ public class BankAccess implements Runnable {
 	}
 	
 
-	public BankAccess(Socket s, boolean direct, Semaphore sem) throws IOException {
+	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
 		dir = direct;
 		control = sem;
 
 		//br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		//bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
 		
-		ir = new InputStreamReader(s.getInputStream());
-		ow = new OutputStreamWriter(s.getOutputStream());
+		//ir = new InputStreamReader(s.getInputStream());
+		//ow = new OutputStreamWriter(s.getOutputStream());
+		ir=null;
+		ow=null;
 	}
 	
 	public void start() {

@@ -1,14 +1,21 @@
 import java.net.*;
 import java.io.*;
 import java.util.concurrent.Semaphore;
+import java.util.Arrays;
+import java.nio.channels.*;
 
 public class BankAccess implements Runnable {
 	
 	boolean dir;
+	String NEW_LINE;
+	boolean read;
 	
 	BufferedReader br;
 	BufferedWriter bw;
 	
+	InputStreamReader ir;
+	OutputStreamWriter ow;
+	private Semaphore control;
 	
 
 	private class Account {
@@ -19,7 +26,7 @@ public class BankAccess implements Runnable {
 		int tries;
 		
 		public Account(float bal, int pin, String name) throws BankException {
-
+			read = false;
 			this.bal = new MoneyFloat(bal);
 			this.pin = pin;
 			this.name = name;
@@ -143,12 +150,17 @@ public class BankAccess implements Runnable {
 	}
 	
 
-	public BankAccess(Socket s, boolean direct, Semaphore sem) throws IOException {
+	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
 		dir = direct;
 		control = sem;
 
-		br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-		bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
+		//br = new BufferedReader(new InputStreamReader(s.getInputStream()));
+		//bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
+		
+		//ir = new InputStreamReader(s.getInputStream());
+		//ow = new OutputStreamWriter(s.getOutputStream());
+		ir=null;
+		io=null;
 	}
 	
 	public void start() {
@@ -157,13 +169,15 @@ public class BankAccess implements Runnable {
 
 	@Override
 	public void run() {
-		
 		while (true) {
-		
 			write("hello");
-			
-			String in = read();
-			
+			String in = null;
+			try {
+				in = read(0);
+			} catch (BankException e) {
+				write(e.getMessage());
+				break;
+			}
 			String cmd[] = in.split("\\s+");
 			Account acct = null;
 			
@@ -190,6 +204,23 @@ public class BankAccess implements Runnable {
 		
 		}
 				
+	}
+	
+	private void parseCommand(String[] cmd, Account acct) throws BankException {
+		switch (cmd[0]) {
+			case "getBalance":
+				getBal(cmd, acct);
+				break;
+			case "deposit":
+				deposit(cmd, acct);
+				break;
+			case "withdraw":
+				withdraw(cmd, acct);
+				break;
+			default:
+				throw new BankException("Command not recognized. Recognized commands are \"getBalance\", \"deposit\", and \"withdraw\"");
+		}
+		updateAccount(acct);
 	}
 	
 	private <T extends Number> T parseLine(String[] in, String match) throws BankException {
@@ -223,29 +254,38 @@ public class BankAccess implements Runnable {
 			if (!(name.equals("Jason") || name.equals("Matthew"))) {
 				throw new BankException("Account name not recognized");
 			}
-			
-			control.acquire();
-			in = new BufferedReader(new FileReader((name + ".acct")));
+			//TODO: handle this better; consider catch block and what to do.
+			try {
+				control.acquire();
+				//TODO: Consider doing this differently. Ie, not BufferedReader
+				in = new BufferedReader(new FileReader((name + ".acct")));
 
-			s_pin = in.readLine().split("\\s+");
-			s_bal = in.readLine().split("\\s+");
-			
-			in.close();
-			
-			if (s_bal != null && s_pin != null) {
+				s_pin = in.readLine().split("\\s+");
+				s_bal = in.readLine().split("\\s+");
 				
-				float bal = this.<Float>parseLine(s_bal, "bal");
-				int pin = this.<Integer>parseLine(s_pin, "pin");
-								
-				return new Account(bal, pin, name);
-				
-			} else {
-				throw new BankException("Error: Account file formatted incorrectly");
+				in.close();
+				control.release();
+			
+				if (s_bal != null && s_pin != null) {
+					
+					float bal = this.<Float>parseLine(s_bal, "bal");
+					int pin = this.<Integer>parseLine(s_pin, "pin");
+									
+					return new Account(bal, pin, name);
+					
+				} else {
+					throw new BankException("Error: Account file formatted incorrectly");
+				}
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				throw new BankException("Error: Account file not found");
 			}
 						
 		} catch (IOException e) {
 			throw new BankException("Error: Account file not found");
-		} finally {
+		}
+/*
+		finally {
 			try {
 				in.close();
 			} catch (IOException e) {
@@ -253,24 +293,7 @@ public class BankAccess implements Runnable {
 			}
 			control.release();
 		}
-	}
-	
-	
-	private void parseCommand(String[] cmd, Account acct) throws BankException {
-		switch (cmd[0]) {
-			case "getBalance":
-				getBal(cmd, acct);
-				break;
-			case "deposit":
-				deposit(cmd, acct);
-				break;
-			case "withdraw":
-				withdraw(cmd, acct);
-				break;
-			default:
-				throw new BankException("Command not recognized. Recognized commands are \"getBalance\", \"deposit\", and \"withdraw\"");
-		}
-		updateAccount(acct);
+*/
 	}
 	
 	//TODO: make this more secure.
@@ -286,15 +309,22 @@ public class BankAccess implements Runnable {
 				throw new BankException("Account name not recognized");
 			}
 			
-			out = new BufferedWriter(new FileWriter((acct.getName() + ".acct")));
-			
-			out.write("pin: " + String.valueOf(acct.getPin()));
-			out.newLine();
-			out.flush();
-			out.write("bal: " + String.valueOf(acct.getBal()));
-			out.flush();
-			
-			out.close();
+			try {
+				control.acquire();
+				out = new BufferedWriter(new FileWriter((acct.getName() + ".acct")));
+				
+				out.write("pin: " + String.valueOf(acct.getPin()));
+				out.newLine();
+				out.flush();
+				out.write("bal: " + String.valueOf(acct.getBal()));
+				out.flush();
+				
+				out.close();
+				control.release();
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+				throw new BankException("Error: Account file not found");
+			}
 			
 		} catch (IOException e) {
 			throw new BankException("Error: Account file not found");
@@ -345,7 +375,7 @@ public class BankAccess implements Runnable {
 		int pin_in = 0;
 		int tries = 0;
 		write("pin?");
-		in = read();
+		in = read(20000);
 		if (in.length() != 4) {
 			throw new BankException("Invalid Format: Enter a four digit (0-9) integer");
 		}
@@ -360,20 +390,70 @@ public class BankAccess implements Runnable {
 	
 	//TODO: handle this better
 	private void write(String msg) {
+		char cr = 13;
+		char fl = 10;
+		msg += String.valueOf(cr);
+		msg += String.valueOf(fl);
+		System.out.println("Writing: " + msg);
+		char[] buff = msg.toCharArray();
 		try {
-			bw.write(msg);
-			bw.newLine();
-			bw.flush();
+			ow.write(buff, 0, buff.length);
+			ow.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 	
 	//TODO: handle this better
-	private String read() {
+	private String read(long timeout) throws BankException {
+		int len = 24;
+		int off = 0;
+		char[] buff = new char[100];
+		String in = null;
+		int c;
+		long time = System.currentTimeMillis();
+		long delta = 0;
+		
 		try {
-			String in = br.readLine();			
-			return in;
+			while (!ir.ready()) {
+				delta = System.currentTimeMillis() - time;
+				System.out.println(delta);
+				if (delta > timeout && timeout > 0) {
+					throw new BankException("Took too long to respond.");
+				}
+			}
+			
+			//TODO: is this vulnerable? Can I be tricked into hanging at
+			// ir.read() indefinitely? What if the packets bounce around
+			// forever, and never reach me? What if no newline ever arrives?
+			while ((c = ir.read(buff, off, len)) > 0) {
+				
+				off += c;
+				
+				if (((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
+					//System.out.println("Final string: " + in);
+					return in;
+				}
+				
+				//If input is too large, discard and everything else until
+				//a newline is received. Do this by setting offset to 0,
+				//overwriting buffer until garbage command is terminated.
+				if (off > 80) {
+					off = 0;
+					System.out.println("input too large for buffer. Stopping read.");
+				}
+				
+				while (!ir.ready()) {
+					delta = System.currentTimeMillis() - time;
+					System.out.println(delta);
+					if (delta > timeout && timeout > 0) {
+						throw new BankException("Took too long between packets.");
+					}
+				}
+				
+			}
+			return "";
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
