@@ -3,6 +3,13 @@ import java.io.*;
 import java.util.concurrent.Semaphore;
 import java.nio.channels.*;
 
+//TODO: CHECK ENVIRONMENT, consider path variable
+//TODO: impliment data transfer verification between bank and ATM; assume faulty router; can data be verified? Yes!
+/*
+B > msg1a > R > msg1b > A
+B < msg? < R < msg1b < A
+*/
+
 public class Bank {
 	
 	//TODO: put in real help message
@@ -43,17 +50,13 @@ public class Bank {
 		//atm.start();
 		//ss = new ServerSocket(port_dir);
 		try {
-			System.out.println("test2");
 			ssc = ServerSocketChannel.open();
-			ssc.socket().bind(new InetsocketAddress(4321));
-			System.out.println("Try accepting!");
+			ssc.socket().bind(new InetSocketAddress(4321));
 			sc = ssc.accept();
-			System.out.println("Stop accepting!");
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 		dir = new BankAccess(sc, true, sem);		
-		//dir = new BankAccess(ss.accept(), true, sem);
 		dir.start();
 		
 	}

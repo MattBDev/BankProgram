@@ -3,6 +3,7 @@ import java.io.*;
 import java.util.concurrent.Semaphore;
 import java.util.Arrays;
 import java.nio.channels.*;
+import java.nio.ByteBuffer;
 
 public class BankAccess implements Runnable {
 	
@@ -10,12 +11,11 @@ public class BankAccess implements Runnable {
 	String NEW_LINE;
 	boolean read;
 	
-	BufferedReader br;
-	BufferedWriter bw;
-	
-	InputStreamReader ir;
-	OutputStreamWriter ow;
+	//InputStreamReader;
+	//OutputStreamWriter ow;
 	private Semaphore control;
+
+	SocketChannel sc;
 	
 
 	private class Account {
@@ -153,14 +153,9 @@ public class BankAccess implements Runnable {
 	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
 		dir = direct;
 		control = sem;
-
-		//br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-		//bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
 		
-		//ir = new InputStreamReader(s.getInputStream());
-		//ow = new OutputStreamWriter(s.getOutputStream());
-		ir=null;
-		ow=null;
+		sc = s;
+		sc.configureBlocking(false);
 	}
 	
 	public void start() {
@@ -395,10 +390,11 @@ public class BankAccess implements Runnable {
 		msg += String.valueOf(cr);
 		msg += String.valueOf(fl);
 		System.out.println("Writing: " + msg);
-		char[] buff = msg.toCharArray();
+		byte[] buff = msg.getBytes();
+		ByteBuffer buf = ByteBuffer.wrap(buff);
 		try {
-			ow.write(buff, 0, buff.length);
-			ow.flush();
+			sc.write(buf);
+			//sc.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -406,15 +402,54 @@ public class BankAccess implements Runnable {
 	
 	//TODO: handle this better
 	private String read(long timeout) throws BankException {
-		int len = 24;
-		int off = 0;
-		char[] buff = new char[100];
+		byte[] buff = new byte[100];
+		ByteBuffer buf = ByteBuffer.wrap(buff);
 		String in = null;
 		int c;
 		long time = System.currentTimeMillis();
 		long delta = 0;
+		int off = 0;
 		
 		try {
+			//TODO: impliment timeout behavior
+			//TODO: guarantee use of PuTTY in passive mode by beginning negotiations
+			
+			//NOTE: this communication relies on the telnet default line-oriented communications protocol (in nothing else about the protocol).
+			//At beginning of read, assume the transmitter is benign and informed. Failing these assumptions, disconnect.
+			//Once begun, take in data until a 1310 is read. Then return.
+			//If enough time passes without a 1310, timeout.		
+			while ((c = sc.read(buf)) != -1) {
+				off = buf.position();
+				System.out.println(new String(buff) + ", " + off);
+				for (int i = 0; i < 10; i++) {
+					int b = (int)buff[i];
+					System.out.print(b);
+				}
+				System.out.println("\n done");
+
+				
+				//TODO: be sure that this is standard on all systems
+				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
+					System.out.println("Final string: " + in);
+					return in;
+				}
+
+				if (buf.remaining() == 0) {
+					throw new BankException("Your input is garbage and so are you.");
+				}
+
+				delta = System.currentTimeMillis() - time;
+				System.out.println(delta);
+				if (delta > timeout && timeout > 0) {
+					throw new BankException("Took too long to respond.");
+				}
+
+			}
+			
+			
+
+			/*
 			while (!ir.ready()) {
 				delta = System.currentTimeMillis() - time;
 				System.out.println(delta);
@@ -453,6 +488,7 @@ public class BankAccess implements Runnable {
 				}
 				
 			}
+			*/
 			return "";
 		} catch (IOException e) {
 			e.printStackTrace();
