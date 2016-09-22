@@ -8,10 +8,10 @@ public class BankAccess implements Runnable {
 	boolean dir;
 	String NEW_LINE;
 	boolean read;
-	
+
 	BufferedReader br;
 	BufferedWriter bw;
-	
+
 	InputStreamReader ir;
 	OutputStreamWriter ow;
 	private Semaphore control;
@@ -75,18 +75,18 @@ public class BankAccess implements Runnable {
 		public String getName() {
 			return name;
 		}
-		
+
 		//TODO: maybe remove this method
-		public int getPin() {
+        int getPin() {
 			return pin;
 		}
-		
+
 		public float getBal() {
 			return bal.num;
 		}
-		
+
 	}
-	
+
 	private class MoneyFloat {
 		
 		public Float num;
@@ -155,7 +155,7 @@ public class BankAccess implements Runnable {
 
 		//br = new BufferedReader(new InputStreamReader(s.getInputStream()));
 		//bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
-		
+
 		ir = new InputStreamReader(s.getInputStream());
 		ow = new OutputStreamWriter(s.getOutputStream());
 	}
@@ -219,7 +219,7 @@ public class BankAccess implements Runnable {
 		}
 		updateAccount(acct);
 	}
-	
+
 	private <T extends Number> T parseLine(String[] in, String match) throws BankException {
 		String error = "Error: Account file formatted incorrectly";
 		if (in.length == 2) {
@@ -240,36 +240,34 @@ public class BankAccess implements Runnable {
 	}
 	
 	private Account buildAccount(String name) throws BankException {
-		
-		BufferedReader in = null;
+
 		String s_bal[];
 		String s_pin[];
-		
+
 		try {
 			//TODO: be more careful about what files are opened
 			//(Attempt to) prevent them from opening any other potentially malicious files
 			if (!(name.equals("Jason") || name.equals("Matthew"))) {
 				throw new BankException("Account name not recognized");
 			}
-			//TODO: handle this better; consider catch block and what to do.
-			try {
-				control.acquire();
-				//TODO: Consider doing this differently. Ie, not BufferedReader
-				in = new BufferedReader(new FileReader((name + ".acct")));
+
+			control.acquire();
+			try (BufferedReader in = new BufferedReader(new FileReader((name + ".acct")))) {
 
 				s_pin = in.readLine().split("\\s+");
 				s_bal = in.readLine().split("\\s+");
-				
-				in.close();
-				control.release();
+
+			} catch (IOException e) {
+				throw new BankException("Error: Account file not found");
+			}
 			
 				if (s_bal != null && s_pin != null) {
-					
+
 					float bal = this.<Float>parseLine(s_bal, "bal");
 					int pin = this.<Integer>parseLine(s_pin, "pin");
-									
+
 					return new Account(bal, pin, name);
-					
+
 				} else {
 					throw new BankException("Error: Account file formatted incorrectly");
 				}
@@ -278,16 +276,9 @@ public class BankAccess implements Runnable {
 				throw new BankException("Error: Account file not found");
 			}
 						
-		} catch (IOException e) {
-			throw new BankException("Error: Account file not found");
-		}
-/*
-		finally {
-			try {
-				in.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
+		} catch (InterruptedException e) {
+			throw new BankException(e.getMessage());
+		} finally {
 			control.release();
 		}
 */
@@ -309,13 +300,13 @@ public class BankAccess implements Runnable {
 			try {
 				control.acquire();
 				out = new BufferedWriter(new FileWriter((acct.getName() + ".acct")));
-				
+
 				out.write("pin: " + String.valueOf(acct.getPin()));
 				out.newLine();
 				out.flush();
 				out.write("bal: " + String.valueOf(acct.getBal()));
 				out.flush();
-				
+
 				out.close();
 				control.release();
 			} catch (InterruptedException e) {
@@ -410,7 +401,7 @@ public class BankAccess implements Runnable {
 		int c;
 		long time = System.currentTimeMillis();
 		long delta = 0;
-		
+
 		try {
 			while (!ir.ready()) {
 				delta = System.currentTimeMillis() - time;
@@ -419,20 +410,20 @@ public class BankAccess implements Runnable {
 					throw new BankException("Took too long to respond.");
 				}
 			}
-			
+
 			//TODO: is this vulnerable? Can I be tricked into hanging at
 			// ir.read() indefinitely? What if the packets bounce around
 			// forever, and never reach me? What if no newline ever arrives?
 			while ((c = ir.read(buff, off, len)) > 0) {
-				
+
 				off += c;
-				
+
 				if (((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
 					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
 					//System.out.println("Final string: " + in);
 					return in;
 				}
-				
+
 				//If input is too large, discard and everything else until
 				//a newline is received. Do this by setting offset to 0,
 				//overwriting buffer until garbage command is terminated.
@@ -440,7 +431,7 @@ public class BankAccess implements Runnable {
 					off = 0;
 					System.out.println("input too large for buffer. Stopping read.");
 				}
-				
+
 				while (!ir.ready()) {
 					delta = System.currentTimeMillis() - time;
 					System.out.println(delta);
@@ -448,7 +439,7 @@ public class BankAccess implements Runnable {
 						throw new BankException("Took too long between packets.");
 					}
 				}
-				
+
 			}
 			return "";
 		} catch (IOException e) {
