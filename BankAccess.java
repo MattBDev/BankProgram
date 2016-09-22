@@ -1,7 +1,13 @@
-import java.net.*;
-import java.io.*;
-import java.util.concurrent.Semaphore;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.nio.channels.SocketChannel;
 import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 
 public class BankAccess implements Runnable {
 
@@ -149,20 +155,22 @@ public class BankAccess implements Runnable {
     }
 
 
-    public BankAccess(Socket s, boolean direct, Semaphore sem) throws IOException {
-        dir = direct;
-        control = sem;
+	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
+		dir = direct;
+		control = sem;
 
-        //br = new BufferedReader(new InputStreamReader(s.getInputStream()));
-        //bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
-
-        ir = new InputStreamReader(s.getInputStream());
-        ow = new OutputStreamWriter(s.getOutputStream());
-    }
-
-    public void start() {
-        (new Thread(this)).start();
-    }
+		//br = new BufferedReader(new InputStreamReader(s.getInputStream()));
+		//bw = new BufferedWriter(new OutputStreamWriter(s.getOutputStream()));
+		
+		//ir = new InputStreamReader(s.getInputStream());
+		//ow = new OutputStreamWriter(s.getOutputStream());
+		ir=null;
+		ow=null;
+	}
+	
+	public void start() {
+		(new Thread(this)).start();
+	}
 
     @Override
     public void run() {
