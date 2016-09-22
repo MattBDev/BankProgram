@@ -16,8 +16,7 @@ public class BankAccess implements Runnable {
 	String NEW_LINE;
 	boolean read;
 	
-	//InputStreamReader;
-	//OutputStreamWriter ow;
+
 	private Semaphore control;
 
 	SocketChannel sc;
@@ -175,7 +174,7 @@ public class BankAccess implements Runnable {
 				in = read(0);
 			} catch (BankException e) {
 				write(e.getMessage());
-				break;
+				continue;
 			}
 			String cmd[] = in.split("\\s+");
 			Account acct = null;
@@ -372,7 +371,6 @@ public class BankAccess implements Runnable {
 	private boolean checkPin(Account acct) throws BankException {
 		String in;
 		int pin_in = 0;
-		int tries = 0;
 		write("pin?");
 		in = read(20000);
 		if (in.length() != 4) {
@@ -398,7 +396,6 @@ public class BankAccess implements Runnable {
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		try {
 			sc.write(buf);
-			//sc.flush();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -413,10 +410,11 @@ public class BankAccess implements Runnable {
 		long time = System.currentTimeMillis();
 		long delta = 0;
 		int off = 0;
+		boolean overflow = false;
 		
 		try {
-			//TODO: impliment timeout behavior
-			//TODO: guarantee use of PuTTY in passive mode by beginning negotiations
+
+			//TODO: guarantee use of PuTTY in passive mode by beginning negotiations and throwing error otherwise
 			
 			//NOTE: this communication relies on the telnet default line-oriented communications protocol (in nothing else about the protocol).
 			//At beginning of read, assume the transmitter is benign and informed. Failing these assumptions, disconnect.
@@ -434,13 +432,17 @@ public class BankAccess implements Runnable {
 				
 				//TODO: be sure that this is standard on all systems
 				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+					if (overflow) {
+						throw new BankException("Your input is garbage and so are you.");
+					}					
 					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
 					System.out.println("Final string: " + in);
 					return in;
 				}
 
 				if (buf.remaining() == 0) {
-					throw new BankException("Your input is garbage and so are you.");
+					buf.rewind();
+					overflow = true;
 				}
 
 				delta = System.currentTimeMillis() - time;
@@ -451,48 +453,6 @@ public class BankAccess implements Runnable {
 
 			}
 			
-			
-
-			/*
-			while (!ir.ready()) {
-				delta = System.currentTimeMillis() - time;
-				System.out.println(delta);
-				if (delta > timeout && timeout > 0) {
-					throw new BankException("Took too long to respond.");
-				}
-			}
-			
-			//TODO: is this vulnerable? Can I be tricked into hanging at
-			// ir.read() indefinitely? What if the packets bounce around
-			// forever, and never reach me? What if no newline ever arrives?
-			while ((c = ir.read(buff, off, len)) > 0) {
-				
-				off += c;
-				
-				if (((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
-					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
-					//System.out.println("Final string: " + in);
-					return in;
-				}
-				
-				//If input is too large, discard and everything else until
-				//a newline is received. Do this by setting offset to 0,
-				//overwriting buffer until garbage command is terminated.
-				if (off > 80) {
-					off = 0;
-					System.out.println("input too large for buffer. Stopping read.");
-				}
-				
-				while (!ir.ready()) {
-					delta = System.currentTimeMillis() - time;
-					System.out.println(delta);
-					if (delta > timeout && timeout > 0) {
-						throw new BankException("Took too long between packets.");
-					}
-				}
-				
-			}
-			*/
 			return "";
 		} catch (IOException e) {
 			e.printStackTrace();
