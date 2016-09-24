@@ -8,6 +8,12 @@ import java.nio.channels.*;
 /*
 B > msg1a > R > msg1b > A
 B < msg? < R < msg1b < A
+
+TODO:
+-secure net communication
+  -error checking; files/sockets may open and close unexpectedly
+  -echo checking for communication corruption
+  -SSLEngine
 */
 
 public class Bank {
@@ -27,8 +33,11 @@ public class Bank {
 		//ServerSocket ss;
 		BankAccess dir;
 		BankAccess atm;
-		ServerSocketChannel ssc;
-		SocketChannel sc = null;
+		ServerSocketChannel ssc = null;
+		SocketChannel atm_sc = null;
+		SocketChannel dir_sc = null;
+		boolean atm_online = false;
+		boolean dir_online = false;
 		
 		if (args.length < 3 | args[0].equals("--help")) {
 			hlpMsg();
@@ -43,21 +52,46 @@ public class Bank {
 				return;
 		}
 		
-		//Also: need to manage synchronization issues
 		ip = args[2];
 		//Do much better handling for malicious behavior; timeouts, etc.
-		//atm = new BankAccess(new Socket(ip, port_rout), false, sem);
-		//atm.start();
-		//ss = new ServerSocket(port_dir);
 		try {
 			ssc = ServerSocketChannel.open();
-			ssc.socket().bind(new InetSocketAddress(4321));
-			sc = ssc.accept();
+			ssc.socket().bind(new InetSocketAddress(port_dir));
+			ssc.configureBlocking(false);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		dir = new BankAccess(sc, true, sem);		
-		dir.start();
+
+		while (!(atm_online && dir_online)) {
+			if (!atm_online) {
+				try {
+					atm_sc = SocketChannel.open();
+					atm_sc.connect(new InetSocketAddress(ip, port_rout));
+					if (atm_sc.finishConnect()) {
+						atm_online = true;
+						atm = new BankAccess(atm_sc, false, sem);
+						atm.start();
+						System.out.println("atm Passed!");
+					}
+				} catch (IOException e) {
+					//e.printStackTrace();
+				}
+			}
+
+			if (!dir_online) {
+				try {
+					dir_sc = ssc.accept();
+					if (dir_sc != null && dir_sc.isConnected()) {
+						dir_online = true;
+						System.out.println("dir Passed!");
+						dir = new BankAccess(dir_sc, true, sem);
+						dir.start();
+					}
+				} catch (IOException e) {
+					//e.printStackTrace();
+				}
+			}
+		}
 		
 	}
 }

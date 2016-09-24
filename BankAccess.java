@@ -422,12 +422,12 @@ public class BankAccess implements Runnable {
 			//If enough time passes without a 1310, timeout.		
 			while ((c = sc.read(buf)) != -1) {
 				off = buf.position();
-				System.out.println(new String(buff) + ", " + off);
+				//System.out.println(new String(buff) + ", " + off);
 				for (int i = 0; i < 10; i++) {
 					int b = (int)buff[i];
-					System.out.print(b);
+					//System.out.print(b);
 				}
-				System.out.println("\n done");
+				//System.out.println("\n done");
 
 				
 				//TODO: be sure that this is standard on all systems
@@ -436,7 +436,7 @@ public class BankAccess implements Runnable {
 						throw new BankException("Your input is garbage and so are you.");
 					}					
 					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
-					System.out.println("Final string: " + in);
+					//System.out.println("Final string: " + in);
 					return in;
 				}
 
@@ -446,7 +446,7 @@ public class BankAccess implements Runnable {
 				}
 
 				delta = System.currentTimeMillis() - time;
-				System.out.println(delta);
+				//System.out.println(delta);
 				if (delta > timeout && timeout > 0) {
 					throw new BankException("Took too long to respond.");
 				}
