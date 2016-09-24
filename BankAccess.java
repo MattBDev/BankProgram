@@ -15,10 +15,9 @@ public class BankAccess implements Runnable {
 	boolean dir;
 	String NEW_LINE;
 	boolean read;
-	
-
+	private Thread t;
 	private Semaphore control;
-
+	private static final String accounts[] = {"Jason", "Matthew"};
 	SocketChannel sc;
 
     private class Account {
@@ -26,14 +25,12 @@ public class BankAccess implements Runnable {
         private MoneyFloat bal;
         private int pin;
         private String name;
-        int tries;
-
+		
         public Account(float bal, int pin, String name) throws BankException {
             read = false;
             this.bal = new MoneyFloat(bal);
             this.pin = pin;
             this.name = name;
-            tries = 0;
         }
 
         public void deposit(float amt) throws BankException {
@@ -49,11 +46,12 @@ public class BankAccess implements Runnable {
         }
 
         //throw withdraw error: wrong pin, or invalid amount
-        public void withdraw(float amt) throws BankException {
+        public Float withdraw(float amt) throws BankException {
             MoneyFloat a = new MoneyFloat(amt);
             if (a.isPositive()) {
                 if (bal.compare(a) >= 0) {
                     bal = bal.sum(a.flip());
+					return a.num;
                 } else {
                     throw new BankException("Insufficient funds.");
                 }
@@ -62,17 +60,10 @@ public class BankAccess implements Runnable {
             }
 
         }
-
+		
         public void checkPin(int p) throws BankException {
-            if (tries < 6) {
-                if (p == pin) {
-                    tries = 0;
-                } else {
-                    tries++;
-                    throw new BankException("Invalid PIN: " + (6 - tries) + " tries remaining.");
-                }
-            } else {
-                throw new BankException("Too many tries. Account has been locked.");
+            if (p != pin) {
+				throw new BankException("Incorrect PIN");
             }
         }
 
@@ -81,7 +72,7 @@ public class BankAccess implements Runnable {
         }
 
         //TODO: maybe remove this method
-        int getPin() {
+        protected int getPin() {
             return pin;
         }
 
@@ -156,13 +147,13 @@ public class BankAccess implements Runnable {
 	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
 		dir = direct;
 		control = sem;
-		
 		sc = s;
 		sc.configureBlocking(false);
 	}
 	
 	public void start() {
-		(new Thread(this)).start();
+		t = new Thread(this);
+		t.start();
 	}
 
 	@Override
@@ -201,7 +192,7 @@ public class BankAccess implements Runnable {
 			}
 		
 		}
-				
+			
 	}
 	
 	private void parseCommand(String[] cmd, Account acct) throws BankException {
@@ -249,9 +240,10 @@ public class BankAccess implements Runnable {
 		try {
 			//TODO: be more careful about what files are opened
 			//(Attempt to) prevent them from opening any other potentially malicious files
-			if (!(name.equals("Jason") || name.equals("Matthew"))) {
+			if (!name.equals(accounts[0]) && !name.equals(accounts[1])) {
 				throw new BankException("Account name not recognized");
 			}
+
 			//TODO: handle this better; consider catch block and what to do.
 			try {
 				control.acquire();
@@ -352,9 +344,8 @@ public class BankAccess implements Runnable {
 		if (cmd.length == 3) {
 			float amt = parseAmt(cmd[2]);
 			checkPin(acct);
-			acct.withdraw(amt);
+			write(("Here are $" + acct.withdraw(amt) + " dollars."));
 			write(String.valueOf(acct.getBal()));
-			
 		} else {
 			throw new BankException("Invalid number of arguments. Two arguments (account, amount) are used by this command.");
 		}
@@ -368,11 +359,26 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private boolean checkPin(Account acct) throws BankException {
+	/*
+	every command, the tries # is reset, since the account is reloaded.
+	also, attackers could maliciously lock out users.
+	options:
+	 -add timer to pin checking
+	 -increase timer with # of failed attempts /per/ user
+	
+	*/
+	private void checkPin(Account acct) throws BankException {
 		String in;
 		int pin_in = 0;
 		write("pin?");
 		in = read(20000);
+		
+		try {
+			t.sleep(4*1000);
+		} catch (InterruptedException e) {
+			throw new BankException("Process interrupted");
+		}
+		
 		if (in.length() != 4) {
 			throw new BankException("Invalid Format: Enter a four digit (0-9) integer");
 		}
@@ -382,7 +388,6 @@ public class BankAccess implements Runnable {
 			throw new BankException("Invalid Format: Enter a four digit (0-9) integer");
 		}
 		acct.checkPin(pin_in);
-		return true;
 	}
 	
 	//TODO: handle this better
@@ -403,7 +408,7 @@ public class BankAccess implements Runnable {
 	
 	//TODO: handle this better
 	private String read(long timeout) throws BankException {
-		byte[] buff = new byte[100];
+		byte[] buff = new byte[128];
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		String in = null;
 		int c;
@@ -411,6 +416,14 @@ public class BankAccess implements Runnable {
 		long delta = 0;
 		int off = 0;
 		boolean overflow = false;
+		
+		//insert artificial delay; hinders attackers, but is not disruptive to
+		//normal users
+		try {
+			t.sleep(2*1000);
+		} catch (InterruptedException e) {
+			throw new BankException("Process interrupted");
+		}
 		
 		try {
 
