@@ -45,6 +45,9 @@ public class ATM {
     }
     public void write(String msg) {
         System.out.println("Writing: " + msg);
+		char[] msg2 = msg.toCharArray();
+		System.out.println("total: " + String.valueOf(msg2));
+		System.out.println("end: " + String.valueOf(msg2[msg2.length-1]));
 		char cr = 13;
 		char lf = 10;
 		msg += (String.valueOf(cr) + String.valueOf(lf));
@@ -140,7 +143,6 @@ public class ATM {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
 			System.out.println("Running. Enter loop");           
 			while (true) {
-				System.out.println("In loop!");
 				System.out.println(read(0));
 				write(reader.readLine());
 			}
