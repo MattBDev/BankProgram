@@ -151,7 +151,7 @@ public class BankAccess implements Runnable {
 	@Override
 	public void run() {
 		boolean connected = false;
-
+		
 		while (connected) {
 			write("hello");
 			String in = null;
