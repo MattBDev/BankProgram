@@ -43,11 +43,8 @@ public class ATM {
         ATM atm = new ATM(address, port);
         atm.run();
     }
+    
     public void write(String msg) {
-        System.out.println("Writing: " + msg);
-		char[] msg2 = msg.toCharArray();
-		System.out.println("total: " + String.valueOf(msg2));
-		System.out.println("end: " + String.valueOf(msg2[msg2.length-1]));
 		char cr = 13;
 		char lf = 10;
 		msg += (String.valueOf(cr) + String.valueOf(lf));
@@ -60,54 +57,19 @@ public class ATM {
         }
     }
 
-	/*
-    private void read() {
-        byte[] buff = new byte[256];
-        ByteBuffer buf = ByteBuffer.wrap(buff);
-        try {
-            while (socketChannel.read(buf) != -1) {
-                String s = new String(buf.array());
-                buf.rewind();
-                System.out.println(s);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-	*/
-	
-	private String read(long timeout) throws IOException {
+	private String readWrite(String msg) throws IOException {
 		byte[] buff = new byte[128];
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		String in = null;
 		int c;
-		long time = System.currentTimeMillis();
-		long delta = 0;
 		int off = 0;
 		boolean overflow = false;
 		
-		//insert artificial delay; hinders attackers, but is not disruptive to
-		//normal users
-		
 		try {
-
-			//TODO: guarantee use of PuTTY in passive mode by beginning negotiations and throwing error otherwise
-			
-			//NOTE: this communication relies on the telnet default line-oriented communications protocol (in nothing else about the protocol).
-			//At beginning of read, assume the transmitter is benign and informed. Failing these assumptions, disconnect.
-			//Once begun, take in data until a 1310 is read. Then return.
-			//If enough time passes without a 1310, timeout.		
+	
 			while ((c = socketChannel.read(buf)) != -1) {
 				off = buf.position();
-				//System.out.println(new String(buff) + ", " + off);
-				for (int i = 0; i < 10; i++) {
-					int b = (int)buff[i];
-					//System.out.print(b);
-				}
-				//System.out.println("\n done");
-
 				
-				//TODO: be sure that this is standard on all systems
 				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
 					if (overflow) {
 						return null;
@@ -121,13 +83,41 @@ public class ATM {
 					overflow = true;
 				}
 
-				/*
-				delta = System.currentTimeMillis() - time;
-				//System.out.println(delta);
-				if (delta > timeout && timeout > 0) {
-					throw new IOException();
+
+			}
+			
+			return "";
+		} catch (IOException e) {
+			e.printStackTrace();
+			return null;
+		}
+	}	
+	
+	private String read() throws IOException {
+		byte[] buff = new byte[128];
+		ByteBuffer buf = ByteBuffer.wrap(buff);
+		String in = null;
+		int c;
+		int off = 0;
+		boolean overflow = false;
+		
+		try {
+	
+			while ((c = socketChannel.read(buf)) != -1) {
+				off = buf.position();
+				
+				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+					if (overflow) {
+						return null;
+					}
+					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
+					return in;
 				}
-				*/
+
+				if (buf.remaining() == 0) {
+					buf.rewind();
+					overflow = true;
+				}
 
 			}
 			
@@ -141,11 +131,15 @@ public class ATM {
     public void run() {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-			System.out.println("Running. Enter loop");           
-			while (true) {
-				System.out.println(read(0));
-				write(reader.readLine());
-			}
+			String in = null;
+	    	while (true) {
+	    		in = read();
+	    		System.out.println(in);
+	    		String[] msg = in.split(String.valueOf((char)13) + String.valueOf((char)10));
+				if (msg[msg.length-1].equals("hello") || msg[msg.length-1].equals("pin?")) {
+					write(reader.readLine());
+				}
+	    	}
         } catch (Exception ex) {
             ex.getStackTrace();
         }

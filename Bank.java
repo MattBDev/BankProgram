@@ -3,24 +3,11 @@ import java.io.*;
 import java.util.concurrent.Semaphore;
 import java.nio.channels.*;
 
-//TODO: CHECK ENVIRONMENT, consider path variable
-//TODO: impliment data transfer verification between bank and ATM; assume faulty router; can data be verified? Yes!
-/*
-B > msg1a > R > msg1b > A
-B < msg? < R < msg1b < A
-
-TODO:
--secure net communication
-  -error checking; files/sockets may open and close unexpectedly
-  -echo checking for communication corruption
-  -SSLEngine
-*/
 
 public class Bank {
 	
-	//TODO: put in real help message
 	public static void hlpMsg() {
-		System.out.println("port_dir, port_router, ip_router");
+		System.out.println("run with arguments: port_dir, port_router, ip_router");
 	}
 	
 	//Run with three arguments: port_dir	port_router		ip_router
@@ -39,7 +26,7 @@ public class Bank {
 		boolean atm_online = false;
 		boolean dir_online = false;
 		
-		if (args.length < 3 | args[0].equals("--help")) {
+		if (args.length < 3 || args[0].equals("--help")) {
 			hlpMsg();
 			return;
 		}
@@ -53,7 +40,6 @@ public class Bank {
 		}
 		
 		ip = args[2];
-		//Do much better handling for malicious behavior; timeouts, etc.
 		try {
 			ssc = ServerSocketChannel.open();
 			ssc.socket().bind(new InetSocketAddress(port_dir));
@@ -62,18 +48,20 @@ public class Bank {
 			e.printStackTrace();
 		}
 
-		while (!(atm_online && dir_online)) {
+		while (true) {
 			if (!atm_online) {
 				try {
 					atm_sc = SocketChannel.open();
 					atm_sc.connect(new InetSocketAddress(ip, port_rout));
-					if (atm_sc.finishConnect()) {
-						atm_online = true;
-						atm = new BankAccess(atm_sc, false, sem);
-						atm.start();
+					while (!atm_sc.finishConnect()) {
+						
 					}
+					atm_online = true;
+					atm = new BankAccess(atm_sc, false, sem);
+					atm.start();
+
 				} catch (IOException e) {
-					//e.printStackTrace();
+					atm_online = false;
 				}
 			}
 
@@ -86,7 +74,7 @@ public class Bank {
 						dir.start();
 					}
 				} catch (IOException e) {
-					//e.printStackTrace();
+					dir_online = false;
 				}
 			}
 		}

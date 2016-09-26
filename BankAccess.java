@@ -26,32 +26,28 @@ public class BankAccess implements Runnable {
         private int pin;
         private String name;
 		
-        public Account(float bal, int pin, String name) throws BankException {
+        protected Account(float bal, int pin, String name) throws BankException {
             read = false;
             this.bal = new MoneyFloat(bal);
             this.pin = pin;
             this.name = name;
         }
 
-        public void deposit(float amt) throws BankException {
-            System.out.println("amt: " + amt);
+        protected void deposit(float amt) throws BankException {
             MoneyFloat a = new MoneyFloat(amt);
-            System.out.println("after: " + a.num + ", pos: " + a.isPositive());
             if (a.isPositive()) {
                 bal = bal.sum(a);
             } else {
-                //This is being called erroneously. Why?
                 throw new BankException("Deposits must be greater than zero");
             }
         }
 
-        //throw withdraw error: wrong pin, or invalid amount
-        public Float withdraw(float amt) throws BankException {
+        protected Float withdraw(float amt) throws BankException {
             MoneyFloat a = new MoneyFloat(amt);
             if (a.isPositive()) {
                 if (bal.compare(a) >= 0) {
                     bal = bal.sum(a.flip());
-					return a.num;
+					return -a.num;
                 } else {
                     throw new BankException("Insufficient funds.");
                 }
@@ -61,22 +57,21 @@ public class BankAccess implements Runnable {
 
         }
 		
-        public void checkPin(int p) throws BankException {
+        protected void checkPin(int p) throws BankException {
             if (p != pin) {
 				throw new BankException("Incorrect PIN");
             }
         }
 
-        public String getName() {
+        protected String getName() {
             return name;
         }
 
-        //TODO: maybe remove this method
         protected int getPin() {
             return pin;
         }
 
-        public float getBal() {
+        protected float getBal() {
             return bal.num;
         }
 
@@ -107,14 +102,11 @@ public class BankAccess implements Runnable {
 
         public MoneyFloat sum(MoneyFloat f) throws BankException {
             MoneyFloat r = new MoneyFloat(num + f.num);
-            System.out.println("Added: " + r.num);
             if (f.isPositive()) {
                 if (num >= r.num) {
                     throw new BankException("Error: funds too large to deposit this amount.");
                 }
             } else {
-                System.out.println("Before: " + num);
-                System.out.println("After: " + r.num);
                 if (num <= r.num) {
                     throw new BankException("Error: withdraw request too large.");
                 }
@@ -154,6 +146,8 @@ public class BankAccess implements Runnable {
 	public void start() {
 		t = new Thread(this);
 		t.start();
+		System.out.println("Neat, I returned");
+		return;
 	}
 
 	@Override
@@ -162,10 +156,10 @@ public class BankAccess implements Runnable {
 			write("hello");
 			String in = null;
 			try {
-				in = read(0);
+				in = read(10*1000);
 			} catch (BankException e) {
 				write(e.getMessage());
-				continue;
+				break;
 			}
 			String cmd[] = in.split("\\s+");
 			Account acct = null;
@@ -192,7 +186,7 @@ public class BankAccess implements Runnable {
 			}
 		
 		}
-			
+
 	}
 	
 	private void parseCommand(String[] cmd, Account acct) throws BankException {
@@ -238,16 +232,12 @@ public class BankAccess implements Runnable {
 		String s_pin[];
 		
 		try {
-			//TODO: be more careful about what files are opened
-			//(Attempt to) prevent them from opening any other potentially malicious files
 			if (!name.equals(accounts[0]) && !name.equals(accounts[1])) {
 				throw new BankException("Account name not recognized");
 			}
 
-			//TODO: handle this better; consider catch block and what to do.
 			try {
 				control.acquire();
-				//TODO: Consider doing this differently. Ie, not BufferedReader
 				in = new BufferedReader(new FileReader((name + ".acct")));
 
 				s_pin = in.readLine().split("\\s+");
@@ -267,26 +257,22 @@ public class BankAccess implements Runnable {
 					throw new BankException("Error: Account file formatted incorrectly");
 				}
 			} catch (InterruptedException e) {
+				if (in != null) {
+					in.close();
+				}
+				control.release();
 				e.printStackTrace();
-				throw new BankException("Error: Account file not found");
+				throw new BankException("Error: Process Interrupted");
 			}
 						
 		} catch (IOException e) {
+			control.release();
 			throw new BankException("Error: Account file not found");
 		}
-/*
-		finally {
-			try {
-				in.close();
-			} catch (IOException e) {
-				e.printStackTrace();
-			}
-			control.release();
-		}
-*/
+
 	}
 	
-	//TODO: make this more secure.
+
 	private void updateAccount(Account acct) throws BankException {
 		
 		BufferedWriter out = null;
@@ -294,8 +280,7 @@ public class BankAccess implements Runnable {
 		String s_pin[];
 		
 		try {
-			//prevent them from opening any other potentially malicious files
-			if (!(acct.getName().equals("Jason") || acct.getName().equals("Matthew"))) {
+			if (!acct.name.equals(accounts[0]) && !acct.name.equals(accounts[1])) {
 				throw new BankException("Account name not recognized");
 			}
 			
@@ -312,11 +297,16 @@ public class BankAccess implements Runnable {
 				out.close();
 				control.release();
 			} catch (InterruptedException e) {
+				if (out != null) {
+					out.close();
+				}
+				control.release();
 				e.printStackTrace();
-				throw new BankException("Error: Account file not found");
+				throw new BankException("Error: Process interrupted");
 			}
 			
 		} catch (IOException e) {
+			control.release();
 			throw new BankException("Error: Account file not found");
 		}
 	}
@@ -359,14 +349,6 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	/*
-	every command, the tries # is reset, since the account is reloaded.
-	also, attackers could maliciously lock out users.
-	options:
-	 -add timer to pin checking
-	 -increase timer with # of failed attempts /per/ user
-	
-	*/
 	private void checkPin(Account acct) throws BankException {
 		String in;
 		int pin_in = 0;
@@ -390,13 +372,11 @@ public class BankAccess implements Runnable {
 		acct.checkPin(pin_in);
 	}
 	
-	//TODO: handle this better
 	private void write(String msg) {
 		char cr = 13;
 		char fl = 10;
 		msg += String.valueOf(cr);
 		msg += String.valueOf(fl);
-		System.out.println("Writing: " + msg);
 		byte[] buff = msg.getBytes();
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		try {
@@ -406,7 +386,6 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	//TODO: handle this better
 	private String read(long timeout) throws BankException {
 		byte[] buff = new byte[128];
 		ByteBuffer buf = ByteBuffer.wrap(buff);
@@ -417,8 +396,6 @@ public class BankAccess implements Runnable {
 		int off = 0;
 		boolean overflow = false;
 		
-		//insert artificial delay; hinders attackers, but is not disruptive to
-		//normal users
 		try {
 			t.sleep(2*1000);
 		} catch (InterruptedException e) {
@@ -426,30 +403,15 @@ public class BankAccess implements Runnable {
 		}
 		
 		try {
-
-			//TODO: guarantee use of PuTTY in passive mode by beginning negotiations and throwing error otherwise
-			
-			//NOTE: this communication relies on the telnet default line-oriented communications protocol (in nothing else about the protocol).
-			//At beginning of read, assume the transmitter is benign and informed. Failing these assumptions, disconnect.
-			//Once begun, take in data until a 1310 is read. Then return.
-			//If enough time passes without a 1310, timeout.		
+	
 			while ((c = sc.read(buf)) != -1) {
 				off = buf.position();
-				//System.out.println(new String(buff) + ", " + off);
-				for (int i = 0; i < 10; i++) {
-					int b = (int)buff[i];
-					//System.out.print(b);
-				}
-				//System.out.println("\n done");
 
-				
-				//TODO: be sure that this is standard on all systems
-				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {			
 					if (overflow) {
 						throw new BankException("Your input is garbage and so are you.");
 					}					
 					in = new String(Arrays.copyOfRange(buff, 0, off - 2));
-					//System.out.println("Final string: " + in);
 					return in;
 				}
 
@@ -459,8 +421,7 @@ public class BankAccess implements Runnable {
 				}
 
 				delta = System.currentTimeMillis() - time;
-				//System.out.println(delta);
-				if (delta > timeout && timeout > 0) {
+				if (delta > timeout) {
 					throw new BankException("Took too long to respond.");
 				}
 
