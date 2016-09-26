@@ -170,7 +170,7 @@ public class BankAccess implements Runnable {
 				write("hello");
 				String in = null;
 				try {
-					in = read(10 * 1000);
+					in = read(30 * 1000);
 				} catch (BankException e) {
 					write(e.getMessage());
 					break;
@@ -425,7 +425,7 @@ public class BankAccess implements Runnable {
 			while ((c = sc.read(buf)) != -1) {
 				off = buf.position();
 
-				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {			
+				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
 					if (overflow) {
 						throw new BankException("Your input is garbage and so are you.");
 					}					

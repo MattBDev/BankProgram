@@ -47,7 +47,7 @@ public class Bank {
 			e.printStackTrace();
 		}
 
-		while (true) {
+		while (!atm_online || !dir_online) {
 			if (!atm_online) {
 				try {
 					atm_sc = SocketChannel.open();
@@ -60,7 +60,7 @@ public class Bank {
 					atm.start();
 
 				} catch (IOException e) {
-					atm_online = false;
+					//atm_online = false;
 				}
 			}
 
@@ -73,7 +73,7 @@ public class Bank {
 						dir.start();
 					}
 				} catch (IOException e) {
-					dir_online = false;
+					//dir_online = false;
 				}
 			}
 		}
