@@ -3,11 +3,9 @@ import java.io.BufferedWriter;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
+import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
-import java.nio.ByteBuffer;
 import java.util.concurrent.Semaphore;
 
 public class BankAccess implements Runnable {
@@ -391,8 +389,7 @@ public class BankAccess implements Runnable {
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		String in = null;
 		int c;
-		long time = System.currentTimeMillis();
-		long delta = 0;
+		long start = System.currentTimeMillis();
 		int off = 0;
 		boolean overflow = false;
 		
@@ -420,8 +417,8 @@ public class BankAccess implements Runnable {
 					overflow = true;
 				}
 
-				delta = System.currentTimeMillis() - time;
-				if (delta > timeout && timeout > 0) {
+				long endtime = System.currentTimeMillis() - start;
+				if (timeout >= endtime && timeout > 0) {
 					throw new BankException("Took too long to respond.");
 				}
 
