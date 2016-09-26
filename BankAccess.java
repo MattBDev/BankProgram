@@ -128,8 +128,13 @@ public class BankAccess implements Runnable {
     }
 
     private class BankException extends Exception {
+    	private String raw;
         public BankException(String msg) {
             super("BankException" + String.valueOf((char)13) + String.valueOf((char)10) + msg);
+            raw = msg;
+        }
+        public String rawMsg() {
+        	return raw;
         }
     }
 
@@ -146,45 +151,61 @@ public class BankAccess implements Runnable {
 		t.start();
 	}
 
+	//TODO: handle malicious disconnects
 	@Override
 	public void run() {
 		boolean connected = false;
-		
-		while (connected) {
-			write("hello");
-			String in = null;
+		while (true) {
 			try {
-				in = read(0);
+				if (read(0).equals("connected")) {
+					connected = true;
+				}
 			} catch (BankException e) {
+				//TODO: WHYYYY
 				write(e.getMessage());
+				System.out.println("ohshit");
 				break;
 			}
-			String cmd[] = in.split("\\s+");
-			Account acct = null;
-		
-			if (cmd.length > 1) {
+			while (connected) {
+				write("hello");
+				String in = null;
 				try {
-					acct = buildAccount(cmd[1]);
+					in = read(10 * 1000);
 				} catch (BankException e) {
 					write(e.getMessage());
+					break;
 				}
-			} else {
-				write("Input command is not in a recognized form. Commands require at least two arguments");
-			}
+				String cmd[] = in.split("\\s+");
+				Account acct = null;
+		
+				if (cmd.length > 1) {
+					try {
+						acct = buildAccount(cmd[1]);
+					} catch (BankException e) {
+						write(e.getMessage());
+						if (e.rawMsg().equals("Timeout")) {
+							System.out.println("ATM times out!!!!");
+							break;
+						}
+					}
+				} else {
+					write("Input command is not in a recognized form. Commands require at least two arguments");
+				}
 		
 			
-			if (acct != null) {
-				try {
-					parseCommand(cmd, acct);
-				} catch (BankException e) {
-					write(e.getMessage());
+				if (acct != null) {
+					try {
+						parseCommand(cmd, acct);
+					} catch (BankException e) {
+						write(e.getMessage());
+					}
+				} else {
+						write("Account not found");
 				}
-			} else {
-					write("Account not found");
-			}
 	
+			}
+			connected = false;
 		}
-			
 	}
 	
 	private void parseCommand(String[] cmd, Account acct) throws BankException {
@@ -419,7 +440,7 @@ public class BankAccess implements Runnable {
 
 				long endtime = System.currentTimeMillis() - start;
 				if (timeout >= endtime && timeout > 0) {
-					throw new BankException("Took too long to respond.");
+					throw new BankException("Timeout");
 				}
 
 			}
