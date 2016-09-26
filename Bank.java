@@ -71,7 +71,6 @@ public class Bank {
 						atm_online = true;
 						atm = new BankAccess(atm_sc, false, sem);
 						atm.start();
-						System.out.println("atm Passed!");
 					}
 				} catch (IOException e) {
 					//e.printStackTrace();
@@ -83,7 +82,6 @@ public class Bank {
 					dir_sc = ssc.accept();
 					if (dir_sc != null && dir_sc.isConnected()) {
 						dir_online = true;
-						System.out.println("dir Passed!");
 						dir = new BankAccess(dir_sc, true, sem);
 						dir.start();
 					}

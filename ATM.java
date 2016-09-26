@@ -11,13 +11,23 @@ public class ATM implements Runnable{
     private Thread thread;
 
     public ATM(InetAddress address, int port) {
-        try {
-            socketChannel = SocketChannel.open();
-            socketChannel.connect(new InetSocketAddress(address,port));
-            socketChannel.configureBlocking(false);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+	boolean connected = false;	
+	while (!connected) {
+		try {
+		    socketChannel = SocketChannel.open();
+		    socketChannel.connect(new InetSocketAddress(address,port));
+		    if (socketChannel.finishConnect()) {
+			connected = true;
+		    }
+		} catch (IOException e) {
+		    e.printStackTrace();
+		}
+	}
+	try {
+	    socketChannel.configureBlocking(false);
+	} catch (IOException e) {
+	    e.printStackTrace();
+	}
         this.start();
     }
 
@@ -66,9 +76,11 @@ public class ATM implements Runnable{
     public void run() {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            while (!socketChannel.finishConnect()) {
-                read();
-                write(reader.readLine());
+	    System.out.println("Running. Enter loop");            
+	    while (true) {
+		System.out.println("In loop!");
+		read();
+		write(reader.readLine());
             }
         } catch (Exception ex) {
             ex.getStackTrace();
