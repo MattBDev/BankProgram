@@ -167,17 +167,19 @@ public class BankAccess implements Runnable {
 				break;
 			}
 			while (connected) {
+				System.out.println("ATM connected. Begin communication");
 				write("hello");
 				String in = null;
 				try {
-					in = read(30 * 1000);
+					in = read(20 * 1000);
 				} catch (BankException e) {
+					System.out.println("Failed at first read");
 					write(e.getMessage());
 					break;
 				}
 				String cmd[] = in.split("\\s+");
 				Account acct = null;
-		
+
 				if (cmd.length > 1) {
 					try {
 						acct = buildAccount(cmd[1]);
@@ -438,8 +440,8 @@ public class BankAccess implements Runnable {
 					overflow = true;
 				}
 
-				long endtime = System.currentTimeMillis() - start;
-				if (timeout >= endtime && timeout > 0) {
+				long delta = System.currentTimeMillis() - start;
+				if (delta >= timeout && timeout > 0) {
 					throw new BankException("Timeout");
 				}
 
