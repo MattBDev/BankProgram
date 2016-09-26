@@ -116,7 +116,24 @@ public class ATM {
         }
     }
 
-    public void run() {
+    public void runWrite() {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+                    while (connected) {
+                        write(reader.readLine());
+                    }
+                } catch (Exception ex) {
+                    ex.getStackTrace();
+                }
+
+            }
+        });
+    }
+
+    public void runRead() {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -127,23 +144,20 @@ public class ATM {
                         if (in != null && in.equalsIgnoreCase("BankException")) {
                             System.out.println(in);
                             System.out.println(ATM.this.read());
-                            socketChannel.close();
-                            connected = false;
-                            System.out.println("Disconnected");
+                            break;
                         }
                         System.out.println(in);
                     } catch (Exception ex) {
                     }
                 }
+                try {
+                    socketChannel.close();
+                } catch (IOException e) {
+                }
+                connected = false;
+                System.out.println("Disconnected");
+
             }
         }).start();
-        try {
-            BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            while (connected) {
-                write(reader.readLine());
-            }
-        } catch (Exception ex) {
-            ex.getStackTrace();
-        }
     }
 }
