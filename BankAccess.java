@@ -131,7 +131,7 @@ public class BankAccess implements Runnable {
 
     private class BankException extends Exception {
         public BankException(String msg) {
-            super(msg);
+            super("BankException" + String.valueOf((char)13) + String.valueOf((char)10) + msg);
         }
     }
 
@@ -152,40 +152,40 @@ public class BankAccess implements Runnable {
 	public void run() {
 		boolean connected = false;
 
-			while (connected) {
-				write("hello");
-				String in = null;
+		while (connected) {
+			write("hello");
+			String in = null;
+			try {
+				in = read(0);
+			} catch (BankException e) {
+				write(e.getMessage());
+				break;
+			}
+			String cmd[] = in.split("\\s+");
+			Account acct = null;
+		
+			if (cmd.length > 1) {
 				try {
-					in = read(10*1000);
+					acct = buildAccount(cmd[1]);
 				} catch (BankException e) {
 					write(e.getMessage());
-					break;
 				}
-				String cmd[] = in.split("\\s+");
-				Account acct = null;
-			
-				if (cmd.length > 1) {
-					try {
-						acct = buildAccount(cmd[1]);
-					} catch (BankException e) {
-						write(e.getMessage());
-					}
-				} else {
-					write("Input command is not in a recognized form. Commands require at least two arguments");
-				}
-			
-			
-				if (acct != null) {
-					try {
-						parseCommand(cmd, acct);
-					} catch (BankException e) {
-						write(e.getMessage());
-					}
-				} else {
-					write("Account not found");
-				}
-		
+			} else {
+				write("Input command is not in a recognized form. Commands require at least two arguments");
 			}
+		
+			
+			if (acct != null) {
+				try {
+					parseCommand(cmd, acct);
+				} catch (BankException e) {
+					write(e.getMessage());
+				}
+			} else {
+					write("Account not found");
+			}
+	
+		}
 			
 	}
 	
