@@ -450,7 +450,7 @@ public class BankAccess implements Runnable {
 			return "";
 		} catch (IOException e) {
 			e.printStackTrace();
-			return null;
+			throw new BankException(e.getMessage());
 		}
 	}
 
