@@ -117,20 +117,23 @@ public class ATM {
     }
 
     public void run() {
-        new Thread(() -> {
-            String in;
-            while (connected) {
-                try {
-                    in = read();
-                    if (in != null && in.equalsIgnoreCase("BankException")) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                String in;
+                while (connected) {
+                    try {
+                        in = ATM.this.read();
+                        if (in != null && in.equalsIgnoreCase("BankException")) {
+                            System.out.println(in);
+                            System.out.println(ATM.this.read());
+                            socketChannel.close();
+                            connected = false;
+                            System.out.println("Disconnected");
+                        }
                         System.out.println(in);
-                        System.out.println(read());
-                        socketChannel.close();
-                        connected = false;
-                        System.out.println("Disconnected");
+                    } catch (Exception ex) {
                     }
-                    System.out.println(in);
-                } catch (Exception ex) {
                 }
             }
         }).start();
