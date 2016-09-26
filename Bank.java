@@ -17,7 +17,6 @@ public class Bank {
 		int port_dir = 0;
 		int port_rout = 0;
 		String ip;
-		//ServerSocket ss;
 		BankAccess dir;
 		BankAccess atm;
 		ServerSocketChannel ssc = null;

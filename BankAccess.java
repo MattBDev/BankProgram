@@ -131,7 +131,7 @@ public class BankAccess implements Runnable {
 
     private class BankException extends Exception {
         public BankException(String msg) {
-            super(msg);
+            super("BankException" + String.valueOf((char)13) + String.valueOf((char)10) + msg);
         }
     }
 
@@ -146,24 +146,24 @@ public class BankAccess implements Runnable {
 	public void start() {
 		t = new Thread(this);
 		t.start();
-		System.out.println("Neat, I returned");
-		return;
 	}
 
 	@Override
 	public void run() {
-		while (true) {
+		boolean connected = false;
+
+		while (connected) {
 			write("hello");
 			String in = null;
 			try {
-				in = read(10*1000);
+				in = read(0);
 			} catch (BankException e) {
 				write(e.getMessage());
 				break;
 			}
 			String cmd[] = in.split("\\s+");
 			Account acct = null;
-			
+		
 			if (cmd.length > 1) {
 				try {
 					acct = buildAccount(cmd[1]);
@@ -173,7 +173,7 @@ public class BankAccess implements Runnable {
 			} else {
 				write("Input command is not in a recognized form. Commands require at least two arguments");
 			}
-			
+		
 			
 			if (acct != null) {
 				try {
@@ -182,11 +182,11 @@ public class BankAccess implements Runnable {
 					write(e.getMessage());
 				}
 			} else {
-				write("Account not found");
+					write("Account not found");
 			}
-		
+	
 		}
-
+			
 	}
 	
 	private void parseCommand(String[] cmd, Account acct) throws BankException {
@@ -421,7 +421,7 @@ public class BankAccess implements Runnable {
 				}
 
 				delta = System.currentTimeMillis() - time;
-				if (delta > timeout) {
+				if (delta > timeout && timeout > 0) {
 					throw new BankException("Took too long to respond.");
 				}
 
