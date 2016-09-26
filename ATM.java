@@ -122,6 +122,13 @@ public class ATM {
             while (connected) {
                 try {
                     in = read();
+                    if (in != null && in.equalsIgnoreCase("BankException")) {
+                        System.out.println(in);
+                        System.out.println(read());
+                        socketChannel.close();
+                        connected = false;
+                        System.out.println("Disconnected");
+                    }
                     System.out.println(in);
                 } catch (Exception ex) {
                 }
@@ -129,7 +136,7 @@ public class ATM {
         }).start();
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
-            while (true) {
+            while (connected) {
                 write(reader.readLine());
             }
         } catch (Exception ex) {
