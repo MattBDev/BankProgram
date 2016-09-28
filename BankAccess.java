@@ -126,15 +126,10 @@ public class BankAccess implements Runnable {
     }
 
     private class BankException extends Exception {
-    	private String raw;
         public BankException(String msg) {
             super("BankException" + String.valueOf((char)13) + String.valueOf((char)10) + msg);
-            raw = msg;
         }
-        public String rawMsg() {
-        	return raw;
-        }
-    }
+   }
 
 
 	public BankAccess(SocketChannel s, boolean direct, Semaphore sem) throws IOException {
@@ -149,7 +144,6 @@ public class BankAccess implements Runnable {
 		t.start();
 	}
 
-	//TODO: handle malicious disconnects
 	@Override
 	public void run() {
 		boolean connected = false;
@@ -159,9 +153,10 @@ public class BankAccess implements Runnable {
 					connected = true;
 				}
 			} catch (BankException | TimeoutException e) {
-				//TODO: WHYYYY
 				write(e.getMessage());
-				System.out.println("ohshit");
+				if (e.getMessage().equals("Timeout")) {
+					System.out.println("ATM timed out");
+				}
 				break;
 			}
 			while (connected) {
@@ -182,7 +177,7 @@ public class BankAccess implements Runnable {
 						acct = buildAccount(cmd[1]);
 					} catch (BankException e) {
 						write(e.getMessage());
-						if (e.rawMsg().equals("Timeout")) {
+						if (e.getMessage().equals("Timeout")) {
 							System.out.println("ATM timed out");
 							break;
 						}
@@ -191,7 +186,6 @@ public class BankAccess implements Runnable {
 					write("Input command is not in a recognized form. Commands require at least two arguments");
 				}
 		
-			
 				if (acct != null) {
 					try {
 						parseCommand(cmd, acct);
