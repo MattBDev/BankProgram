@@ -169,14 +169,8 @@ public class BankAccess implements Runnable {
 				write("hello");
 				String in;
 				try {
-<<<<<<< HEAD
-					in = read(20 * 1000);
-				} catch (BankException e) {
-					System.out.println("Failed at first read");
-=======
 					in = read(30 * 1000);
 				} catch (BankException | TimeoutException e) {
->>>>>>> fe61b6c889d7cf97103472594664c83d4ea0596e
 					write(e.getMessage());
 					break;
 				}
@@ -189,7 +183,7 @@ public class BankAccess implements Runnable {
 					} catch (BankException e) {
 						write(e.getMessage());
 						if (e.rawMsg().equals("Timeout")) {
-							System.out.println("ATM times out!!!!");
+							System.out.println("ATM timed out");
 							break;
 						}
 					}
