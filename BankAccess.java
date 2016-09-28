@@ -166,7 +166,7 @@ public class BankAccess implements Runnable {
 				write("hello");
 				String in;
 				try {
-					in = read(3 * 1000);
+					in = read(20 * 1000);
 				} catch (BankException | TimeoutException e) {
 					write(e.getMessage());
 					break;
