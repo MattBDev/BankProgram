@@ -48,6 +48,9 @@ public class ATM {
     }
 
     public void write(String msg) {
+        if (!connected) {
+            return;
+        }
         char cr = 13;
         char lf = 10;
         msg += (String.valueOf(cr) + String.valueOf(lf));
@@ -126,6 +129,7 @@ public class ATM {
                         if (in.contains("TimeoutException")) {
                             connected = false;
                             socketChannel.close();
+                            System.in.close();
                         }
                     } catch (IOException ex) {
                         ex.getMessage();
