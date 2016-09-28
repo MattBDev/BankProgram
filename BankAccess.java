@@ -5,18 +5,17 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.concurrent.Semaphore;
 
 public class BankAccess implements Runnable {
 	
-	boolean dir;
-	String NEW_LINE;
-	boolean read;
+	private boolean dir;
 	private Thread t;
 	private Semaphore control;
 	private static final String accounts[] = {"Jason", "Matthew"};
-	SocketChannel sc;
+	private SocketChannel sc;
 
     private class Account {
 
@@ -25,8 +24,7 @@ public class BankAccess implements Runnable {
         private String name;
 		
         protected Account(float bal, int pin, String name) throws BankException {
-            read = false;
-            this.bal = new MoneyFloat(bal);
+			this.bal = new MoneyFloat(bal);
             this.pin = pin;
             this.name = name;
         }
@@ -160,7 +158,7 @@ public class BankAccess implements Runnable {
 				if (read(0).equals("connected")) {
 					connected = true;
 				}
-			} catch (BankException e) {
+			} catch (BankException | TimeoutException e) {
 				//TODO: WHYYYY
 				write(e.getMessage());
 				System.out.println("ohshit");
@@ -168,10 +166,10 @@ public class BankAccess implements Runnable {
 			}
 			while (connected) {
 				write("hello");
-				String in = null;
+				String in;
 				try {
 					in = read(30 * 1000);
-				} catch (BankException e) {
+				} catch (BankException | TimeoutException e) {
 					write(e.getMessage());
 					break;
 				}
@@ -196,7 +194,7 @@ public class BankAccess implements Runnable {
 				if (acct != null) {
 					try {
 						parseCommand(cmd, acct);
-					} catch (BankException e) {
+					} catch (BankException | TimeoutException e) {
 						write(e.getMessage());
 					}
 				} else {
@@ -208,7 +206,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private void parseCommand(String[] cmd, Account acct) throws BankException {
+	private void parseCommand(String[] cmd, Account acct) throws BankException, TimeoutException {
 		switch (cmd[0]) {
 			case "getBalance":
 				getBal(cmd, acct);
@@ -231,11 +229,9 @@ public class BankAccess implements Runnable {
 			try {
 				switch (in[0]) {
 					case "pin:":
-						T i = (T)Integer.valueOf(in[1]);
-						return i;
+						return (T)Integer.valueOf(in[1]);
 					case "bal:":
-						T f = (T)Float.valueOf(in[1]);
-						return f;
+						return (T)Float.valueOf(in[1]);
 				}
 			} catch (NumberFormatException e) {
 				throw new BankException(error + ". PIN or Balance is in the wrong format.");
@@ -246,7 +242,6 @@ public class BankAccess implements Runnable {
 	
 	private Account buildAccount(String name) throws BankException {
 		
-		BufferedReader in = null;
 		String s_bal[];
 		String s_pin[];
 		
@@ -255,14 +250,12 @@ public class BankAccess implements Runnable {
 				throw new BankException("Account name not recognized");
 			}
 
-			try {
+			try (BufferedReader in = new BufferedReader(new FileReader((name + ".acct")))){
 				control.acquire();
-				in = new BufferedReader(new FileReader((name + ".acct")));
 
 				s_pin = in.readLine().split("\\s+");
 				s_bal = in.readLine().split("\\s+");
 				
-				in.close();
 				control.release();
 			
 				if (s_bal != null && s_pin != null) {
@@ -276,10 +269,7 @@ public class BankAccess implements Runnable {
 					throw new BankException("Error: Account file formatted incorrectly");
 				}
 			} catch (InterruptedException e) {
-				if (in != null) {
-					in.close();
-				}
-				control.release();
+                control.release();
 				e.printStackTrace();
 				throw new BankException("Error: Process Interrupted");
 			}
@@ -293,33 +283,24 @@ public class BankAccess implements Runnable {
 	
 
 	private void updateAccount(Account acct) throws BankException {
-		
-		BufferedWriter out = null;
-		String s_bal[];
-		String s_pin[];
-		
+
 		try {
 			if (!acct.name.equals(accounts[0]) && !acct.name.equals(accounts[1])) {
 				throw new BankException("Account name not recognized");
 			}
 			
-			try {
+			try (BufferedWriter out = new BufferedWriter(new FileWriter((acct.getName() + ".acct")))) {
 				control.acquire();
-				out = new BufferedWriter(new FileWriter((acct.getName() + ".acct")));
-				
+
 				out.write("pin: " + String.valueOf(acct.getPin()));
 				out.newLine();
 				out.flush();
 				out.write("bal: " + String.valueOf(acct.getBal()));
 				out.flush();
 				
-				out.close();
 				control.release();
 			} catch (InterruptedException e) {
-				if (out != null) {
-					out.close();
-				}
-				control.release();
+                control.release();
 				e.printStackTrace();
 				throw new BankException("Error: Process interrupted");
 			}
@@ -330,7 +311,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private void getBal(String cmd[], Account acct) throws BankException {
+	private void getBal(String cmd[], Account acct) throws BankException, TimeoutException {
 		checkPin(acct);
 		write(String.valueOf(acct.getBal()));
 	}
@@ -349,7 +330,7 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private void withdraw(String cmd[], Account acct) throws BankException {
+	private void withdraw(String cmd[], Account acct) throws BankException, TimeoutException {
 		if (cmd.length == 3) {
 			float amt = parseAmt(cmd[2]);
 			checkPin(acct);
@@ -368,14 +349,13 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private void checkPin(Account acct) throws BankException {
-		String in;
-		int pin_in = 0;
-		write("pin?");
-		in = read(20000);
-		
-		try {
-			t.sleep(4*1000);
+	private void checkPin(Account acct) throws BankException, TimeoutException {
+        write("pin?");
+        int pin_in = 0;
+        String in = read(20000);
+
+        try {
+			Thread.sleep(4*1000);
 		} catch (InterruptedException e) {
 			throw new BankException("Process interrupted");
 		}
@@ -396,7 +376,7 @@ public class BankAccess implements Runnable {
 		char fl = 10;
 		msg += String.valueOf(cr);
 		msg += String.valueOf(fl);
-		byte[] buff = msg.getBytes();
+		byte[] buff = msg.getBytes(StandardCharsets.US_ASCII);
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		try {
 			sc.write(buf);
@@ -405,13 +385,12 @@ public class BankAccess implements Runnable {
 		}
 	}
 	
-	private String read(long timeout) throws BankException {
+	private String read(long timeout) throws BankException, TimeoutException {
 		byte[] buff = new byte[128];
 		ByteBuffer buf = ByteBuffer.wrap(buff);
-		String in = null;
-		int c;
+		String in;
 		long start = System.currentTimeMillis();
-		int off = 0;
+		int off;
 		boolean overflow = false;
 		
 		try {
@@ -422,10 +401,10 @@ public class BankAccess implements Runnable {
 		
 		try {
 	
-			while ((c = sc.read(buf)) != -1) {
+			while (sc.read(buf) != -1) {
 				off = buf.position();
 
-				if (off > 1 && ((byte)buff[off-2]) == 13 && ((byte)buff[off-1]) == 10) {
+				if (off > 1 && buff[off-2] == 13 && buff[off-1] == 10) {
 					if (overflow) {
 						throw new BankException("Your input is garbage and so are you.");
 					}					
@@ -440,15 +419,14 @@ public class BankAccess implements Runnable {
 
 				long endtime = System.currentTimeMillis() - start;
 				if (timeout >= endtime && timeout > 0) {
-					throw new BankException("Timeout");
+					throw new TimeoutException();
 				}
 
 			}
 			
 			return "";
 		} catch (IOException e) {
-			e.printStackTrace();
-			return null;
+			throw new BankException(e.getMessage());
 		}
 	}
 

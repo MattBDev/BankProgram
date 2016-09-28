@@ -5,6 +5,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class ATM {
@@ -36,7 +37,7 @@ public class ATM {
         char cr = 13;
         char lf = 10;
         msg += (String.valueOf(cr) + String.valueOf(lf));
-        byte[] buff = msg.getBytes();
+        byte[] buff = msg.getBytes(StandardCharsets.US_ASCII);
         ByteBuffer buf = ByteBuffer.wrap(buff);
         try {
             socketChannel.write(buf);
@@ -45,58 +46,21 @@ public class ATM {
         }
     }
 
-    private String readWrite(String msg) throws IOException {
-        byte[] buff = new byte[128];
-        ByteBuffer buf = ByteBuffer.wrap(buff);
-        String in = null;
-        int c;
-        int off = 0;
-        boolean overflow = false;
-
-        try {
-
-            while ((c = socketChannel.read(buf)) != -1) {
-                off = buf.position();
-
-                if (off > 1 && ((byte) buff[off - 2]) == 13 && ((byte) buff[off - 1]) == 10) {
-                    if (overflow) {
-                        return null;
-                    }
-                    in = new String(Arrays.copyOfRange(buff, 0, off - 2));
-                    return in;
-                }
-
-                if (buf.remaining() == 0) {
-                    buf.rewind();
-                    overflow = true;
-                }
-
-
-            }
-
-            return "";
-        } catch (IOException e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
     private String read() throws IOException {
         byte[] buff = new byte[128];
         ByteBuffer buf = ByteBuffer.wrap(buff);
-        String in = null;
-        int c;
-        int off = 0;
+        String in;
+        int off;
         boolean overflow = false;
 
         try {
 
-            while ((c = socketChannel.read(buf)) != -1) {
+            while (socketChannel.read(buf) != -1) {
                 off = buf.position();
 
                 if (off > 1 && ((byte) buff[off - 2]) == 13 && ((byte) buff[off - 1]) == 10) {
                     if (overflow) {
-                        return null;
+                        return "Reading failed with overflow error";
                     }
                     in = new String(Arrays.copyOfRange(buff, 0, off - 2));
                     return in;
@@ -112,7 +76,7 @@ public class ATM {
             return "";
         } catch (IOException e) {
             e.printStackTrace();
-            return null;
+            return "Encountered IOException while reading";
         }
     }
 
@@ -130,7 +94,7 @@ public class ATM {
                 }
 
             }
-        });
+        }).start();
     }
 
     public void runRead() {
@@ -141,22 +105,18 @@ public class ATM {
                 while (connected) {
                     try {
                         in = ATM.this.read();
-                        if (in != null && in.equalsIgnoreCase("BankException")) {
-                            System.out.println(in);
-                            System.out.println(ATM.this.read());
-                            break;
+                        String[] split = in.split(String.valueOf((char) 13) + String.valueOf((char) 10));
+                        for (String s : split) {
+                            System.out.println(s);
                         }
-                        System.out.println(in);
-                    } catch (Exception ex) {
+                        if (in.contains("TimeoutException")) {
+                            connected = false;
+                        }
+                    } catch (IOException ex) {
+                        ex.getMessage();
                     }
                 }
-                try {
-                    socketChannel.close();
-                } catch (IOException e) {
-                }
-                connected = false;
                 System.out.println("Disconnected");
-
             }
         }).start();
     }
