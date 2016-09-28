@@ -12,6 +12,8 @@ public class ATM {
     private SocketChannel socketChannel = null;
     private Thread thread;
     private boolean connected = false;
+    private Thread r;
+    private Thread w;
 
     public ATM(InetAddress address, int port) {
         while (!connected) {
@@ -81,7 +83,7 @@ public class ATM {
     }
 
     public void runWrite() {
-        new Thread(new Runnable() {
+        w = new Thread(new Runnable() {
             @Override
             public void run() {
                 try {
@@ -94,11 +96,14 @@ public class ATM {
                 }
 
             }
-        }).start();
+        });
+        w.start();
+        try { r.join(); } catch (InterruptedException e) { e.printStackTrace(); }
+        
     }
 
     public void runRead() {
-        new Thread(new Runnable() {
+        r = new Thread(new Runnable() {
             @Override
             public void run() {
                 String in;
@@ -111,6 +116,7 @@ public class ATM {
                         }
                         if (in.contains("TimeoutException")) {
                             connected = false;
+                            socketChannel.close();
                         }
                     } catch (IOException ex) {
                         ex.getMessage();
@@ -118,6 +124,10 @@ public class ATM {
                 }
                 System.out.println("Disconnected");
             }
-        }).start();
+        });
+        r.start();
+        try {
+        	r.join();
+        } catch (InterruptedException e) { e.printStackTrace(); }
     }
 }

@@ -169,7 +169,7 @@ public class BankAccess implements Runnable {
 				write("hello");
 				String in;
 				try {
-					in = read(30 * 1000);
+					in = read(20 * 1000);
 				} catch (BankException | TimeoutException e) {
 					write(e.getMessage());
 					break;
@@ -391,6 +391,7 @@ public class BankAccess implements Runnable {
 		ByteBuffer buf = ByteBuffer.wrap(buff);
 		String in;
 		long start = System.currentTimeMillis();
+		long delta;
 		int off;
 		boolean overflow = false;
 		
@@ -418,8 +419,8 @@ public class BankAccess implements Runnable {
 					overflow = true;
 				}
 
-				long endtime = System.currentTimeMillis() - start;
-				if (timeout >= endtime && timeout > 0) {
+				delta = System.currentTimeMillis() - start;
+				if (delta >= timeout && timeout > 0) {
 					throw new TimeoutException();
 				}
 
