@@ -11,7 +11,7 @@ public class ATMLauncher {
             e.printStackTrace();
         }
         ATM atm = new ATM(address, port);
-        atm.runRead();
         atm.runWrite();
+        atm.runRead();
     }
 }

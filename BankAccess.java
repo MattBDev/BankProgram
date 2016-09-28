@@ -149,7 +149,9 @@ public class BankAccess implements Runnable {
 		boolean connected = false;
 		while (true) {
 			try {
-				if (read(0).equals("connected")) {
+				String[] handshake = read(0).split(" ");
+				if (handshake.length == 2 && handshake[0].equals("connected")) {
+					checkKey(handshake[1]);
 					connected = true;
 				}
 			} catch (BankException | TimeoutException e) {
@@ -164,11 +166,12 @@ public class BankAccess implements Runnable {
 				write("hello");
 				String in;
 				try {
-					in = read(20 * 1000);
+					in = read(3 * 1000);
 				} catch (BankException | TimeoutException e) {
 					write(e.getMessage());
 					break;
 				}
+				System.out.println("Sent response to first message");
 				String cmd[] = in.split("\\s+");
 				Account acct = null;
 
@@ -216,6 +219,20 @@ public class BankAccess implements Runnable {
 				throw new BankException("Command not recognized. Recognized commands are \"getBalance\", \"deposit\", and \"withdraw\"");
 		}
 		updateAccount(acct);
+	}
+	
+	private void checkKey(String key) throws BankException {
+		try (BufferedReader in = new BufferedReader(new FileReader(("key.txt")))){
+			String my_key = in.readLine();
+			
+			if (!key.equals(my_key)) {
+				throw new BankException("ATM cannot be verified!");
+			}
+			
+		} catch (IOException e) {
+			e.printStackTrace();
+			throw new BankException("Key file could not be found");
+		}
 	}
 	
 	private <T extends Number> T parseLine(String[] in, String match) throws BankException {

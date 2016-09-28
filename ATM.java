@@ -7,6 +7,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.io.FileReader;
 
 public class ATM {
     private SocketChannel socketChannel = null;
@@ -16,6 +17,7 @@ public class ATM {
     private Thread w;
 
     public ATM(InetAddress address, int port) {
+        String key = null;
         while (!connected) {
             try {
                 socketChannel = SocketChannel.open();
@@ -32,7 +34,17 @@ public class ATM {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        write("connected");
+        
+        try (BufferedReader in = new BufferedReader(new FileReader(("key.txt")))){
+			key = in.readLine();
+			in.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+			write("Key unavailable");
+		}
+		if (key != null) {
+			write("connected " + key);
+		}
     }
 
     public void write(String msg) {
@@ -94,12 +106,9 @@ public class ATM {
                 } catch (Exception ex) {
                     ex.getStackTrace();
                 }
-
             }
         });
         w.start();
-        try { r.join(); } catch (InterruptedException e) { e.printStackTrace(); }
-        
     }
 
     public void runRead() {
@@ -126,8 +135,5 @@ public class ATM {
             }
         });
         r.start();
-        try {
-        	r.join();
-        } catch (InterruptedException e) { e.printStackTrace(); }
     }
 }
